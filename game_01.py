@@ -15,8 +15,25 @@ def update_list(list):
     for elem in list:
         elem.update()
 
+def cleanup_list(list):
+    """i = 0
+    while i < len(list):
+        elem = list[i]
+        if not elem.alive:
+            list.pop(i)
+        else:
+            i += 1
+    """
+    for i, _ in enumerate(list):
+        elem = list[i]
+        if not elem.alive:
+            print("AA")
+            list.pop(i)
+
+
 class Map:
     GROUND_Y = 100 #地面の座標
+
 
 class Background:
     pass
@@ -30,7 +47,7 @@ class Ringring(Map):
     MOVE_SPEED = 3.0
     JUMP_SPEED = 2.0
     GRAVITY = 0.5
-    RELOAD_TIME = 15
+    #RELOAD_TIME = 15
     global VECT
 
     def __init__(self): # blocks, enemys
@@ -38,15 +55,18 @@ class Ringring(Map):
         self.vy = 0
         self.vect = VECT
         self.jump_lim = 0
+        self.shot_lim = 0
 
     def update(self,x,y):
         # ========ringring LR===============
         if pyxel.btn(pyxel.KEY_LEFT) or pyxel.btn(pyxel.GAMEPAD_1_LEFT):
-            self.pos.x -= self.MOVE_SPEED
+            if self.pos.x > -5:
+                self.pos.x -= self.MOVE_SPEED
             if self.vect == 1:
                 self.vect  = -1
         if pyxel.btn(pyxel.KEY_RIGHT) or pyxel.btn(pyxel.GAMEPAD_1_RIGHT):
-            self.pos.x += self.MOVE_SPEED
+            if self.pos.x < 155:
+                self.pos.x += self.MOVE_SPEED
             if self.vect == -1:
                 self.vect = 1
 
@@ -61,12 +81,17 @@ class Ringring(Map):
             if self.jump_lim == 0:
                 self.vy = -6
                 self.jump_lim += 1
+            """以下の処理を入れてその下のjump_lim　= 0　を消すと2段ジャンプ後硬直が入る
             if self.pos.y == self.GROUND_Y -15:
-                self.jump_lim = 0
+                self.jump_lim = 0"""
+        if self.pos.y == self.GROUND_Y -15:
+            self.jump_lim = 0
 
         # ============shot====================
-        if pyxel.btnp(pyxel.KEY_SPACE) or pyxel.btnp(pyxel.GAMEPAD_1_A):
-            Karikari(self.pos.x,self.pos.y)
+        if len(shot_list) < 3 and pyxel.btnp(pyxel.KEY_SPACE) or pyxel.btnp(pyxel.GAMEPAD_1_A):
+            Karikari(self.pos.x,self.pos.y,self.vect)
+            """self.shot_lim = 10
+        self.shot_lim -= 1"""
 
     def draw(self):
         pyxel.blt(self.pos.x,self.pos.y,
@@ -75,36 +100,18 @@ class Ringring(Map):
 class Karikari():
     SHOT_SPEED = 4
 
-    def __init__(self,x,y):
-        self.x = x + 2 #*VECT
+    def __init__(self,x,y,v):
+        self.x = x + 2
         self.y = y + 9
+        self.v = v
         self.alive = True
 
-        shot_list.append(self)
-    
-    """def update1(self):
-        if GAMEMODE == 1:
-            if VECT == 1:
-                self.x += self.SHOT_SPEED
-                if 161 < self.x　< -1:
-                    self.alive = False
-            elif VECT == -1:
-                self.x -= self.SHOT_SPEED
-                if self.x < -1:
-                    self.alive = False
-        elif GAMEMODE == 2:
-            self.x += self.SHOT_SPEED
-            if self.x < 161:
-                self.alive = False"""
+        if len(shot_list) < 3:
+            shot_list.append(self)
 
     def update(self):
-        self.x += self.SHOT_SPEED #* VECT
-        if self.x > 161:
-            self.alive = False
-
-    def update2(self):
-        self.x += self.SHOT_SPEED
-        if self.x < 161:
+        self.x += (self.SHOT_SPEED  * self.v)
+        if self.x > 161 or self.x <-1:
             self.alive = False
     
     def draw(self):
@@ -127,6 +134,8 @@ class Game(Map):
         pyxel.init(160,120,caption="ringring Adventure")
         self.rinrin = Ringring()
         self.scene = self.GAME_START
+        self.back_cloud =  [((i) * 45, randint(8, 60), i) for i in range(4)]
+        self.back_mountain =  [((i) * 45, self.GROUND_Y - 8, i) for i in range(4)]
 
         #pyxel用のリソースファイルを読み込む
         pyxel.load("mygame_resource.pyxres")
@@ -136,7 +145,7 @@ class Game(Map):
     def update(self):
         #ゲームを終了する
         if pyxel.btnp(pyxel.KEY_Q):
-            pyxel.quit()        
+            pyxel.quit()
 
         # ゲームのムービー部分、メイン、ゲームオーバー画面を遷移
         if self.scene == self.GAME_START:
@@ -153,16 +162,35 @@ class Game(Map):
     def game_progress(self):
         self.rinrin.update(self.rinrin.pos.x,self.rinrin.pos.y)
         update_list(shot_list)
+        cleanup_list(shot_list)
+
+        if self.rinrin.pos.x >-5:
+            self.rinrin.pos.x -= 1
     
     def game_orver(self):
         self.scene = self.GAME_ORVER
     
     def draw(self):
-        pyxel.cls(0)
+        pyxel.cls(12)
         pyxel.rect(0,self.GROUND_Y,pyxel.width,pyxel.height,11)
-        #りんりんを表示させる
+        pyxel.blt(130,5,0,64,16,15,15,12)
+        #ステージを描写
         if self.scene == self.GAME_PROGRESS:
+            offset = (pyxel.frame_count // 16) % 160
+            for i in range(2): #背景の雲
+                for x, y, z in self.back_cloud:
+                    pyxel.blt(x + i * 160 - offset, y, 0, 16 * z, 16, 15, 15, 12)
+            offset = (pyxel.frame_count // 4) % 160 # // 4
+            for i in range(2): #背景の山
+                for x, y, z in self.back_mountain:
+                    pyxel.blt(x + i * 160 - offset, y, 0, 16 * z, 32, 16, 8, 12)
+            offset = pyxel.frame_count % 160
+            for i in range(2): #段ボール
+                pyxel.blt(i * 160 -offset,self.GROUND_Y - 6, 0, 0, 40, 160, 15, 12)
+
+            #りんりんを描写
             self.draw_progress()
+
         #カリカリを描写
         for elem in shot_list:
             elem.draw()

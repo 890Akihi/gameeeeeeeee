@@ -1,5 +1,4 @@
 from random import randint
-from time import sleep
 import pyxel
 
 
@@ -183,11 +182,11 @@ class Boss(Cat):
 
 #"""
 class Game(Map):
-    GAME_START = 0
-    GAME_PROGRESS = 1
-    GAME_OVER = 2
-    GAME_BOSS = 3
-    PAUSE = 4
+    GAME_START = 1
+    GAME_PROGRESS = 2
+    GAME_OVER = 3
+    GAME_BOSS = 4
+    PAUSE = 0
     BOSS_alive = 0
 
     def __init__(self):
@@ -205,6 +204,7 @@ class Game(Map):
         self.play_music = True
         self.game_clear = False
         self.now_scene = 0
+        self.menu = 0
         
         #pyxel用のリソースファイルを読み込む
         pyxel.load("mygame_resource.pyxres")
@@ -215,12 +215,16 @@ class Game(Map):
 
     def update(self):
         #ゲームを終了する
-        if pyxel.btnp(pyxel.KEY_Q) or pyxel.btnp(pyxel.GAMEPAD_1_SELECT):
+        if pyxel.btnr(pyxel.KEY_Q) or pyxel.btnr(pyxel.GAMEPAD_1_SELECT):
             pyxel.quit()
 
         if pyxel.btnp(pyxel.KEY_Z) or pyxel.btnp(pyxel.GAMEPAD_1_START):
-            self.now_scene = self.scene
-            self.scene = self.PAUSE
+            if self.scene == self.PAUSE:
+                self.scene = self.now_scene
+            else:
+                self.now_scene = self.scene
+                self.menu = 0
+                self.scene = self.PAUSE
 
         # ゲームのムービー部分、メイン、ゲームオーバー画面を遷移
         if self.scene == self.GAME_START:
@@ -235,9 +239,42 @@ class Game(Map):
             self.game_over()
     
     def pause(self):
-        if pyxel.btnp(pyxel.KEY_Z) or pyxel.btnp(pyxel.GAMEPAD_2_START):
-            self.scene = self.now_scene
-        pass
+        if pyxel.btnp(pyxel.KEY_B) or pyxel.btnp(pyxel.GAMEPAD_1_LEFT):
+            self.menu -= 1
+        if pyxel.btnp(pyxel.KEY_N) or pyxel.btnp(pyxel.GAMEPAD_1_RIGHT):
+            self.menu += 1
+        pyxel.rect(10,10,140,100,7)
+        if self.menu == 0:
+            pyxel.rect(10,10,140,100,7)
+            pyxel.text(70,11,"PAUSE",0)
+            pyxel.text(20,20,"[MENU]",0)
+            pyxel.text(20,30,"UP KEY : JUMP",0)
+            pyxel.text(20,40,"LEFT KEY : MOVE LEFT",0)
+            pyxel.text(20,50,"RIGFT KEY : MOVE RIGHT",0)
+            pyxel.text(20,60,"SPACE KEY : RINGRING SHOT",0)
+            pyxel.text(20,70,"[Z] KEY: RETURN PAUSE",0)
+            pyxel.text(20,99,"[B] BACK             [N] NEXT",0)
+        if self.menu == 1:
+            pyxel.rect(10,10,140,100,7)
+            pyxel.text(70,11,"PAUSE",0)
+            pyxel.blt(20,30,2,0,0,126,55,7)
+            pyxel.text(20,99,"[B] BACK             [N] NEXT",0)
+        if self.menu == 2:
+            pyxel.rect(10,10,140,100,7)
+            pyxel.text(70,11,"PAUSE",0)
+            pyxel.blt(20,30,2,0,56,126,38,7)
+            pyxel.text(20,99,"[B] BACK             [N] NEXT",0)
+
+        if self.menu == 3:
+            pyxel.text(20,99,"[B] BACK             [N] NEXT",0)
+        
+        if self.menu ==4:
+            pyxel.rect(10,10,140,100,7)
+            pyxel.blt(20,30,2,0,104,126,38,7)
+            pyxel.text(20,99,"[B] BACK             [N] NEXT",0)
+        
+        if self.menu <= -1 or self.menu >= 5:
+            self.menu = 0
 
     def first_scene(self):
         del shot_list[:]
@@ -272,7 +309,7 @@ class Game(Map):
         if pyxel.frame_count % randint(20,65) == 0:
             Cat()
         
-        # 段ボールにぶつかったshotを消滅
+        # パンダブロックにぶつかったshotを消滅
         for i2,i in enumerate(shot_list):
             for _,k in enumerate(block_list):
                 if ((k.pos.x < i.pos.x)
@@ -284,7 +321,7 @@ class Game(Map):
                     shot_list.pop(i2)
                     break
         for j,k in enumerate(block_list):
-            # LIFEが０の敵を消滅させる
+            # LIFEが０のパンダブロックを消滅させる
             if k.LIFE == 0:
                 block_list.pop(j)
 
@@ -315,9 +352,7 @@ class Game(Map):
                 self.rinrin.LIFE -= 1
                 break
         
-        #offset = pyxel.frame_count / 30
-        #if offset - self.framecount == 5: # 60
-        if len(self.brake_cat) == 30:
+        if len(self.brake_cat) == 32:
             #del shot_list[:]
             #del cat_list[:]
             self.scene = self.GAME_BOSS
@@ -330,8 +365,9 @@ class Game(Map):
         if self.BOSS_alive == 0:
             self.boss = Boss()
             self.BOSS_alive = 1
+        boss_life = self.boss.LIFE
 
-        if pyxel.frame_count % randint(20,60) == 0:
+        if pyxel.frame_count % randint(35,60) == 0:
             Cat()
 
         self.rinrin.update(self.rinrin.pos.x,self.rinrin.pos.y)
@@ -339,6 +375,19 @@ class Game(Map):
         update_list(cat_list)
         update_list(block_list)
         cleanup_list(shot_list)
+
+        # パンダブロックにぶつかったshotを消滅
+        for i2,i in enumerate(shot_list):
+            for j,k in enumerate(block_list):
+                if ((k.pos.x < i.pos.x)
+                    and (i.pos.x < k.pos.x + 15)
+                    and (k.pos.y < i.pos.y)
+                    and (i.pos.y < k.pos.y + 15)):
+            # パンダとショットを消滅
+                    k.LIFE -= 1
+                    shot_list.pop(i2)
+                    block_list.pop(j)
+                    break
         
         #敵（Cat）の消滅
         for i2,i in enumerate(shot_list):
@@ -355,6 +404,10 @@ class Game(Map):
             # LIFEが０の敵を消滅させる
             if k.LIFE == 0:
                 cat_list.pop(j)
+        if self.boss.LIFE != boss_life:
+            if len(block_list):
+                self.brake_cat.pop()
+                self.brake_cat.pop()
 
         #りんりんダメージ
         for j,k in enumerate(cat_list):
@@ -394,7 +447,8 @@ class Game(Map):
         pyxel.cls(0)
         pyxel.text(45, 45,"ringring Adventure",14)
         pyxel.text(51, 70,"- PRESS ENTER -",14)
-        pyxel.text(51, 80,"PRESS [q] EXIT!",14)
+        pyxel.text(51, 80,"PRESS [z] PAUSE",14)
+        pyxel.text(51, 90,"PRESS [q] EXIT!",14)
 
     def draw_game_progress(self):
         pyxel.cls(12)
@@ -425,6 +479,11 @@ class Game(Map):
             elem.draw()
         """if self.BOSS_alive == 1:
             self.boss.draw()"""
+        
+        #ボスのライフメーター（出現カウントダウン）を表示
+        pyxel.rect(40,5,84,8,10)
+        gauge = len(self.brake_cat)
+        pyxel.rect(42,6,2.5*gauge,6,3)
 
         #りんりんを描写
         self.rinrin.draw()
@@ -435,7 +494,8 @@ class Game(Map):
 
     def draw_game_over(self):
         if self.game_clear:
-            pyxel.rect(0,0,160,120,10)
+            pyxel.rect(40,5,84,8,10)
+            pyxel.rect(20,20,120,80,10)
             pyxel.text(58,45,"GAME CLEAR!!",0)
         else:
             self.play_music = False
